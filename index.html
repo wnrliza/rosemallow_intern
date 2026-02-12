@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>three.js css3d - periodic table</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+		<style>
+			a {
+				color: #8ff;
+			}
+
+			#menu {
+				position: absolute;
+				bottom: 20px;
+				width: 100%;
+				text-align: center;
+			}
+
+			.element {
+				width: 120px;
+				height: 160px;
+				box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
+				border: 1px solid rgba(127,255,255,0.25);
+				font-family: Helvetica, sans-serif;
+				text-align: center;
+				line-height: normal;
+				cursor: default;
+			}
+
+			.element:hover {
+				box-shadow: 0px 0px 12px rgba(0,255,255,0.75);
+				border: 1px solid rgba(127,255,255,0.75);
+			}
+
+				.element .number {
+					position: absolute;
+					top: 20px;
+					right: 20px;
+					font-size: 12px;
+					color: rgba(127,255,255,0.75);
+				}
+
+				.element .symbol {
+					position: absolute;
+					top: 40px;
+					left: 0px;
+					right: 0px;
+					font-size: 60px;
+					font-weight: bold;
+					color: rgba(255,255,255,0.75);
+					text-shadow: 0 0 10px rgba(0,255,255,0.95);
+				}
+
+				.element .details {
+					position: absolute;
+					bottom: 15px;
+					left: 0px;
+					right: 0px;
+					font-size: 12px;
+					color: rgba(127,255,255,0.75);
+				}
+
+			button {
+				color: rgba(127,255,255,0.75);
+				background: transparent;
+				outline: 1px solid rgba(127,255,255,0.75);
+				border: 0px;
+				padding: 5px 10px;
+				cursor: pointer;
+			}
+
+			button:hover {
+				background-color: rgba(0,255,255,0.5);
+			}
+
+			button:active {
+				color: #000000;
+				background-color: rgba(0,255,255,0.75);
+			}
+		</style>
+	</head>
+	<body>
+
+		<div id="info"><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> css3d - periodic table.</div>
+		<div id="auth-container" style="position: absolute; top: 10px; right: 10px; z-index: 1000;">
+			<button id="authorize_button" style="display: none;">Sign In with Google</button>
+			<button id="signout_button" style="display: none;">Sign Out</button>
+			<div id="user-info" style="color: #8ff; font-size: 14px; margin-top: 5px;"></div>
+		</div>
+		<div id="container"></div>
+		<div id="menu">
+			<button id="table">TABLE</button>
+			<button id="sphere">SPHERE</button>
+			<button id="helix">HELIX</button>
+			<button id="grid">GRID</button>
+		</div>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+					"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+				}
+			}
+		</script>
+
+		<script src="https://apis.google.com/js/api.js"></script>
+		<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import TWEEN from 'three/addons/libs/tween.module.js';
+			import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+			import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+
+			const CLIENT_ID = '163206440640-vtoijeatmk1n4l8ne8chhpf6dvi6f4ll.apps.googleusercontent.com';
+			const API_KEY = 'AIzaSyC5zj_uKItBYkCrS0sDyPFLyTm0_7nIwSY';
+			const SPREADSHEET_ID = '14eb576StZ3jW-owX7qOYO8MaiyXQJxI_ZqbJyXbz3ks'; // Just the ID, not the full URL
+			const RANGE = 'Sheet1!A2:G201';
+
+			const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+			const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+
+			let tokenClient;
+			let gapiInited = false;
+			let gisInited = false;
+
+			let table = [
+				1, 'Lee Siew Suan', '$251,260.80', 'https://static.kasatria.com/pivot-img/photo/019.jpg', 25, 'CN', 'Writing',
+				2, 'New Yee Chian', '$60,393.60', 'https://static.kasatria.com/pivot-img/photo/020.jpg', 23, 'CN', 'Cooking',
+				3, 'Wong Thiam Fook', '$212,140.80', 'https://static.kasatria.com/pivot-img/photo/021.jpg', 30, 'CN', 'Traveling',
+				4, 'Norsuzilawati Mohd Noor', '$208,228.80', 'https://static.kasatria.com/pivot-img/photo/022.jpg', 30, 'MY', 'Painting',
+				5, 'Norzainah Omar', '$106,555.20', 'https://static.kasatria.com/pivot-img/photo/023.jpg', 30, 'MY', 'Hiking',
+				6, 'Meghandran Nathy', '$139,080.00', 'https://static.kasatria.com/pivot-img/photo/024.jpg', 31, 'IN', 'Cooking',
+				7, 'Joyshree Goswami', '$192,278.40', 'https://static.kasatria.com/pivot-img/photo/025.jpg', 35, 'IN', 'Painting',
+				8, 'Geetha Maniam', '$90,864.00', 'https://static.kasatria.com/pivot-img/photo/026.jpg', 27, 'IN', 'Cooking',
+				9, 'Abdul Rahim Osman', '$141,859.20', 'https://static.kasatria.com/pivot-img/photo/027.jpg', 30, 'MY', 'Cooking',
+				10, 'Prem Anand Raj', '$196,113.60', 'https://static.kasatria.com/pivot-img/photo/028.jpg', 44, 'IN', 'Gardening',
+				11, 'Piara Singh Sarwan Singh', '$207,960.00', 'https://static.kasatria.com/pivot-img/photo/029.jpg', 34, 'IN', 'Writing',
+				12, 'Othman b Abdul Rahman', '$193,200.00', 'https://static.kasatria.com/pivot-img/photo/030.jpg', 53, 'MY', 'Gardening',
+				13, 'Sathiaseelan Paul Thurai', '$264,456.00', 'https://static.kasatria.com/pivot-img/photo/031.jpg', 59, 'IN', 'Gardening',
+				14, 'Abdul Farid Alias', '$146,592.00', 'https://static.kasatria.com/pivot-img/photo/MY0014.jpg', 36, 'MY', 'Writing',
+				15, 'Abu Hassan Assari Ibrahim', '$213,657.60', 'https://static.kasatria.com/pivot-img/photo/MY0010.jpg', 43, 'MY', 'Gardening',
+				16, 'Faridah Ahmad Iskandar', '$271,516.80', 'https://static.kasatria.com/pivot-img/photo/MY_003.jpg', 31, 'MY', 'Writing',
+				17, 'Muzaffar Hisham', '$230,980.80', 'https://static.kasatria.com/pivot-img/photo/MY0009.jpg', 35, 'MY', 'Cooking',
+				18, 'Isaac Cardinal', '$259,252.80', 'https://static.kasatria.com/pivot-img/photo/CA0088.jpg', 49, 'US', 'Gardening',
+				19, 'Prabunathan A/L Gopal', '$271,670.40', 'https://static.kasatria.com/pivot-img/photo/IND_021.jpg', 29, 'IN', 'Writing',
+				20, 'Taswin Zakaria', '$243,840.00', 'https://static.kasatria.com/pivot-img/photo/MY0012.jpg', 41, 'MY', 'Gardening',
+				21, 'Crystal Carter', '$211,550.40', 'https://static.kasatria.com/pivot-img/photo/039.jpg', 35, 'US', 'Cooking',
+				22, 'Vivian Grapentine', '$149,361.60', 'https://static.kasatria.com/pivot-img/photo/040.jpg', 36, 'CN', 'Writing',
+				23, 'Joey De Leion', '$60,974.40', 'https://static.kasatria.com/pivot-img/photo/041.jpg', 35, 'US', 'Hiking',
+				24, 'Mark Feehily', '$125,496.00', 'https://static.kasatria.com/pivot-img/photo/042.jpg', 30, 'US', 'Cooking',
+				25, 'Cheong Choong Kong', '$111,412.80', 'https://static.kasatria.com/pivot-img/photo/114.jpg', 25, 'CN', 'Painting',
+				26, 'George Lee Lap Wah', '$146,174.40', 'https://static.kasatria.com/pivot-img/photo/115.jpg', 31, 'CN', 'Painting',
+				27, 'Yong Mei Theng', '$187,896.00', 'https://static.kasatria.com/pivot-img/photo/116.jpg', 28, 'CN', 'Writing',
+				28, 'Tang Zhee Kim', '$264,355.20', 'https://static.kasatria.com/pivot-img/photo/117.jpg', 24, 'CN', 'Painting',
+				29, 'Tan Miaw Wei', '$101,841.60', 'https://static.kasatria.com/pivot-img/photo/118.jpg', 25, 'CN', 'Cooking',
+				30, 'Cheng Ming Soon', '$210,835.20', 'https://static.kasatria.com/pivot-img/photo/119.jpg', 18, 'CN', 'Traveling',
+				31, 'Lee Fong Fong', '$193,017.60', 'https://static.kasatria.com/pivot-img/photo/120.jpg', 25, 'CN', 'Painting',
+				32, 'Amir Amran Karim', '$147,600.00', 'https://static.kasatria.com/pivot-img/photo/121.jpg', 29, 'MY', 'Cooking',
+				33, 'Krishnan CK Menon', '$207,355.20', 'https://static.kasatria.com/pivot-img/photo/122.jpg', 25, 'IN', 'Cooking',
+				34, 'Aishwarya Rai', '$186,398.40', 'https://static.kasatria.com/pivot-img/photo/IND_041.jpg', 32, 'IN', 'Hiking',
+				35, 'Simone Kumar Gopalan', '$327,057.60', 'https://static.kasatria.com/pivot-img/photo/124.jpg', 36, 'IN', 'Hiking',
+				36, 'Maimoonah Hussain', '$181,228.80', 'https://static.kasatria.com/pivot-img/photo/125.jpg', 27, 'MY', 'Cooking',
+				37, 'Chanda Kochar', '$133,228.80', 'https://static.kasatria.com/pivot-img/photo/126.jpg', 30, 'IN', 'Hiking',
+				38, 'Shyamala Gopinath', '$267,230.40', 'https://static.kasatria.com/pivot-img/photo/127.jpg', 20, 'IN', 'Traveling',
+				39, 'Suren Zedek', '$89,764.80', 'https://static.kasatria.com/pivot-img/photo/128.jpg', 35, 'IN', 'Writing',
+				40, 'Danial Kuilan', '$246,686.40', 'https://static.kasatria.com/pivot-img/photo/129.jpg', 35, 'IN', 'Writing',
+				41, 'Levi Asher Anamalai', '$170,260.80', 'https://static.kasatria.com/pivot-img/photo/130.jpg', 19, 'IN', 'Traveling',
+				42, 'Tristan Martin', '$181,555.20', 'https://static.kasatria.com/pivot-img/photo/131.jpg', 52, 'US', 'Gardening',
+				43, 'David Conner', '$282,019.20', 'https://static.kasatria.com/pivot-img/photo/CA0294.jpg', 55, 'US', 'Gardening',
+				44, 'Kerry Jen Katona', '$250,579.20', 'https://static.kasatria.com/pivot-img/photo/CA0285.jpg', 43, 'US', 'Gardening',
+				45, 'Gilbert Kohnke', '$344,318.40', 'https://static.kasatria.com/pivot-img/photo/134.jpg', 55, 'US', 'Gardening',
+				46, 'Spencer Murray', '$240,638.40', 'https://static.kasatria.com/pivot-img/photo/135.jpg', 52, 'US', 'Gardening',
+				47, 'Yaacob Mohd Zain', '$205,372.80', 'https://static.kasatria.com/pivot-img/photo/136.jpg', 24, 'MY', 'Hiking',
+				48, 'Hatini Mat Husin', '$350,774.40', 'https://static.kasatria.com/pivot-img/photo/137.jpg', 28, 'MY', 'Hiking',
+				49, 'Ariffin Alias', '$241,670.40', 'https://static.kasatria.com/pivot-img/photo/138.jpg', 28, 'MY', 'Writing',
+				50, 'Abdul Malik A Rahman', '$197,779.20', 'https://static.kasatria.com/pivot-img/photo/139.jpg', 42, 'MY', 'Gardening',
+				51, 'Samad Mahid Zain', '$245,827.20', 'https://static.kasatria.com/pivot-img/photo/140.jpg', 30, 'MY', 'Hiking',
+				52, 'Johan Hashim', '$184,915.20', 'https://static.kasatria.com/pivot-img/photo/141.jpg', 34, 'MY', 'Cooking',
+				53, 'Samsiah Zainal', '$259,180.80', 'https://static.kasatria.com/pivot-img/photo/142.jpg', 28, 'MY', 'Painting',
+				54, 'Tay Eng Yaw', '$188,457.60', 'https://static.kasatria.com/pivot-img/photo/009.jpg', 27, 'CN', 'Cooking',
+				55, 'Cynthiea Hong Pei Min', '$164,865.60', 'https://static.kasatria.com/pivot-img/photo/010.jpg', 22, 'CN', 'Painting',
+				56, 'Lim Yong Siang', '$347,481.60', 'https://static.kasatria.com/pivot-img/photo/011.jpg', 40, 'CN', 'Gardening',
+				57, 'Mohd Azam Mohd Bakar', '$166,795.20', 'https://static.kasatria.com/pivot-img/photo/018.jpg', 38, 'MY', 'Cooking',
+				58, 'Jagathesan Shanmugam', '$97,075.20', 'https://static.kasatria.com/pivot-img/photo/043.jpg', 43, 'IN', 'Gardening',
+				59, 'Christiana Tharsis', '$243,014.40', 'https://static.kasatria.com/pivot-img/photo/044.jpg', 35, 'IN', 'Hiking',
+				60, 'Amutha Rakwan', '$100,396.80', 'https://static.kasatria.com/pivot-img/photo/045.jpg', 46, 'IN', 'Gardening',
+				61, 'Wan Rosmawati Wan Ibrahim', '$191,616.00', 'https://static.kasatria.com/pivot-img/photo/046.jpg', 34, 'MY', 'Cooking',
+				62, 'Khatimah Mahadi', '$265,171.20', 'https://static.kasatria.com/pivot-img/photo/047.jpg', 29, 'MY', 'Painting',
+				63, 'Nor Rozita Nordin', '$246,158.40', 'https://static.kasatria.com/pivot-img/photo/048.jpg', 32, 'MY', 'Painting',
+				64, 'Abdul Aziz Man', '$312,158.40', 'https://static.kasatria.com/pivot-img/photo/049.jpg', 32, 'MY', 'Cooking',
+				65, 'Nimma Safira Khalid', '$258,384.00', 'https://static.kasatria.com/pivot-img/photo/050.jpg', 19, 'MY', 'Traveling',
+				66, 'Lam Swee Kim', '$148,718.40', 'https://static.kasatria.com/pivot-img/photo/012.jpg', 23, 'CN', 'Painting',
+				67, 'Tai Yee Shian', '$195,206.40', 'https://static.kasatria.com/pivot-img/photo/013.jpg', 34, 'CN', 'Painting',
+				68, 'Euodia Ooi', '$52,118.40', 'https://static.kasatria.com/pivot-img/photo/014.jpg', 27, 'CN', 'Writing',
+				69, 'Ng Jia Nian', '$340,464.00', 'https://static.kasatria.com/pivot-img/photo/015.jpg', 24, 'CN', 'Cooking',
+				70, 'Ong Tze Jun', '$159,739.20', 'https://static.kasatria.com/pivot-img/photo/016.jpg', 36, 'CN', 'Hiking',
+				71, 'Brian Choong Chee Keong', '$347,659.20', 'https://static.kasatria.com/pivot-img/photo/017.jpg', 21, 'CN', 'Traveling',
+				72, 'Shaharuddin Abg Mansor', '$351,993.60', 'https://static.kasatria.com/pivot-img/photo/086.jpg', 47, 'MY', 'Gardening',
+				73, 'Mohd Izani Ashari', '$230,179.20', 'https://static.kasatria.com/pivot-img/photo/087.jpg', 30, 'MY', 'Traveling',
+				74, 'Roshan Thiran', '$369,652.80', 'https://static.kasatria.com/pivot-img/photo/088.jpg', 26, 'MY', 'Cooking',
+				75, 'Shahazwan Harris', '$364,948.80', 'https://static.kasatria.com/pivot-img/photo/089.jpg', 30, 'MY', 'Painting',
+				76, 'Saiful Dzulkifly', '$360,115.20', 'https://static.kasatria.com/pivot-img/photo/090.jpg', 36, 'MY', 'Painting',
+				77, 'Jamie Haniff Ramlee', '$174,312.00', 'https://static.kasatria.com/pivot-img/photo/091.jpg', 47, 'MY', 'Gardening',
+				78, 'Azim Azli', '$160,252.80', 'https://static.kasatria.com/pivot-img/photo/092.jpg', 50, 'MY', 'Gardening',
+				79, 'Zaida Khalida Shaari', '$163,104.00', 'https://static.kasatria.com/pivot-img/photo/093.jpg', 25, 'MY', 'Cooking',
+				80, 'Nurul Nabila Huda Che Ad', '$247,579.20', 'https://static.kasatria.com/pivot-img/photo/094.jpg', 39, 'MY', 'Hiking',
+				81, 'Sarimah Samad-Imran', '$102,580.80', 'https://static.kasatria.com/pivot-img/photo/095.jpg', 29, 'MY', 'Painting',
+				82, 'Wan Nur Nordiyana', '$264,705.60', 'https://static.kasatria.com/pivot-img/photo/096.jpg', 25, 'MY', 'Cooking',
+				83, 'Fatimah Husna', '$72,710.40', 'https://static.kasatria.com/pivot-img/photo/097.jpg', 25, 'MY', 'Writing',
+				84, 'Nurshafiqah Saad', '$128,750.40', 'https://static.kasatria.com/pivot-img/photo/098.jpg', 30, 'MY', 'Cooking',
+				85, 'Amerjit Singh Bhag Singh', '$205,171.20', 'https://static.kasatria.com/pivot-img/photo/IND_005.jpg', 31, 'IN', 'Writing',
+				86, 'Nora Abd Manaf', '$168,096.00', 'https://static.kasatria.com/pivot-img/photo/100.jpg', 29, 'MY', 'Writing',
+				87, 'Walter Michael Chan', '$197,083.20', 'https://static.kasatria.com/pivot-img/photo/101.jpg', 29, 'CN', 'Cooking',
+				88, 'Teng Chean Choy', '$145,862.40', 'https://static.kasatria.com/pivot-img/photo/102.jpg', 32, 'CN', 'Cooking',
+				89, 'Chua Bee Chin', '$159,883.20', 'https://static.kasatria.com/pivot-img/photo/103.jpg', 23, 'CN', 'Painting',
+				90, 'Santhanamary John', '$135,878.40', 'https://static.kasatria.com/pivot-img/photo/155.jpg', 25, 'IN', 'Writing',
+				91, 'Nor Arzlin Redzwan', '$66,907.20', 'https://static.kasatria.com/pivot-img/photo/156.jpg', 42, 'MY', 'Gardening',
+				92, 'Zuraidah Atan', '$104,649.60', 'https://static.kasatria.com/pivot-img/photo/157.jpg', 28, 'MY', 'Cooking',
+				93, 'Shahrul Izzan Abdul Karim', '$46,363.20', 'https://static.kasatria.com/pivot-img/photo/158.jpg', 29, 'MY', 'Traveling',
+				94, 'Putri Shireen Syed Othman', '$96,628.80', 'https://static.kasatria.com/pivot-img/photo/m_047.jpg', 33, 'MY', 'Painting',
+				95, 'Abdul Hadzi Marzuki', '$117,273.60', 'https://static.kasatria.com/pivot-img/photo/160.jpg', 34, 'MY', 'Writing',
+				96, 'Yasmin Ahmad', '$58,833.60', 'https://static.kasatria.com/pivot-img/photo/161.jpg', 24, 'MY', 'Painting',
+				97, 'Halipah Binti Esa', '$102,676.80', 'https://static.kasatria.com/pivot-img/photo/162.jpg', 29, 'MY', 'Traveling',
+				98, 'Habibah Abdul', '$210,993.60', 'https://static.kasatria.com/pivot-img/photo/163.jpg', 37, 'MY', 'Painting',
+				99, 'Zulkarnain Ahmad', '$71,361.60', 'https://static.kasatria.com/pivot-img/photo/164.jpg', 34, 'MY', 'Writing',
+				100, 'Fauziah Mohd Noor', '$126,532.80', 'https://static.kasatria.com/pivot-img/photo/165.jpg', 24, 'MY', 'Painting',
+				101, 'Mohd Yunus Idris', '$143,112.00', 'https://static.kasatria.com/pivot-img/photo/196.jpg', 39, 'MY', 'Writing',
+				102, 'Ahmad Jauhari Yahya', '$159,422.40', 'https://static.kasatria.com/pivot-img/photo/197.jpg', 21, 'MY', 'Traveling',
+				103, 'Saifol Bahri Mohamad Shamlan', '$198,936.00', 'https://static.kasatria.com/pivot-img/photo/198.jpg', 34, 'MY', 'Writing',
+				104, 'Isham Ishak', '$112,598.40', 'https://static.kasatria.com/pivot-img/photo/199.jpg', 40, 'MY', 'Gardening',
+				105, 'Mohd Hafizuddin Mansor', '$99,624.00', 'https://static.kasatria.com/pivot-img/photo/200.jpg', 34, 'MY', 'Hiking',
+				106, 'Stuart Cardell', '$44,140.80', 'https://static.kasatria.com/pivot-img/photo/CA0292.jpg', 44, 'US', 'Gardening',
+				107, 'Abigail Wellington', '$126,201.60', 'https://static.kasatria.com/pivot-img/photo/CA0237.jpg', 33, 'US', 'Painting',
+				108, 'Gino Chin', '$178,569.60', 'https://static.kasatria.com/pivot-img/photo/c_035.jpg', 33, 'CN', 'Cooking',
+				109, 'Meon Khor', '$132,936.00', 'https://static.kasatria.com/pivot-img/photo/c_016.jpg', 37, 'CN', 'Writing',
+				110, 'Lim Joo ann', '$183,110.40', 'https://static.kasatria.com/pivot-img/photo/c_013.jpg', 30, 'CN', 'Writing',
+				111, 'Yong Hai Wen', '$259,123.20', 'https://static.kasatria.com/pivot-img/photo/CN_038.jpg', 19, 'CN', 'Traveling',
+				112, 'Yuki Low Mei Shan', '$191,016.00', 'https://static.kasatria.com/pivot-img/photo/CN_024.jpg', 28, 'CN', 'Hiking',
+				113, 'Jessica Tee Yan Lai', '$152,433.60', 'https://static.kasatria.com/pivot-img/photo/J_013.jpg', 36, 'CN', 'Hiking',
+				114, 'Sam Yam', '$57,499.20', 'https://static.kasatria.com/pivot-img/photo/J_003.jpg', 29, 'CN', 'Cooking',
+				115, 'Shanker Jorrama', '$220,142.40', 'https://static.kasatria.com/pivot-img/photo/IND_057.jpg', 36, 'IN', 'Writing',
+				116, 'Vick Viknes', '$267,307.20', 'https://static.kasatria.com/pivot-img/photo/IND_010.jpg', 21, 'IN', 'Painting',
+				117, 'Arul Krishnan', '$69,883.20', 'https://static.kasatria.com/pivot-img/photo/IND_035.jpg', 35, 'IN', 'Hiking',
+				118, 'Shamini Mohanan', '$363,681.60', 'https://static.kasatria.com/pivot-img/photo/IND_014.jpg', 28, 'IN', 'Writing',
+				119, 'Theodore Frazer', '$361,166.40', 'https://static.kasatria.com/pivot-img/photo/o_009.jpg', 49, 'US', 'Gardening',
+				120, 'Aju Varghese', '$324,686.40', 'https://static.kasatria.com/pivot-img/photo/IND_028.jpg', 43, 'IN', 'Gardening',
+				121, 'Shahrukh Khan', '$287,155.20', 'https://static.kasatria.com/pivot-img/photo/IND_032.jpg', 40, 'IN', 'Gardening',
+				122, 'Prithviraj Sukumaran', '$363,739.20', 'https://static.kasatria.com/pivot-img/photo/IND_040.jpg', 50, 'IN', 'Gardening',
+				123, 'Sarah Miller', '$101,832.00', 'https://static.kasatria.com/pivot-img/photo/CA0134.jpg', 32, 'US', 'Painting',
+				124, 'Monali Thakur', '$162,710.40', 'https://static.kasatria.com/pivot-img/photo/IND_016.jpg', 29, 'IN', 'Painting',
+				125, 'Keerubalami Ponnudi', '$177,052.80', 'https://static.kasatria.com/pivot-img/photo/IND_044.jpg', 36, 'IN', 'Writing',
+				126, 'Saint Sahana', '$314,136.00', 'https://static.kasatria.com/pivot-img/photo/i_023.jpg', 37, 'IN', 'Hiking',
+				127, 'Munish Thabur', '$171,758.40', 'https://static.kasatria.com/pivot-img/photo/m_020.jpg', 28, 'MY', 'Hiking',
+				128, 'Yogesh Balakrishnamur', '$238,915.20', 'https://static.kasatria.com/pivot-img/photo/IND_011.jpg', 21, 'IN', 'Painting',
+				129, 'Sharmilla Mogan', '$173,740.80', 'https://static.kasatria.com/pivot-img/photo/IND_049.jpg', 19, 'IN', 'Traveling',
+				130, 'Janesree Gunasegern', '$187,512.00', 'https://static.kasatria.com/pivot-img/photo/IND_045.jpg', 32, 'IN', 'Painting',
+				131, 'Preya Nadarasa', '$247,233.60', 'https://static.kasatria.com/pivot-img/photo/i_018.jpg', 26, 'IN', 'Cooking',
+				132, 'Uma Shamini', '$201,451.20', 'https://static.kasatria.com/pivot-img/photo/i_028.jpg', 24, 'IN', 'Cooking',
+				133, 'Geetha Kumar', '$164,433.60', 'https://static.kasatria.com/pivot-img/photo/IND_053.jpg', 18, 'IN', 'Traveling',
+				134, 'Jeeva Rajadran', '$192,969.60', 'https://static.kasatria.com/pivot-img/photo/IND_031.jpg', 38, 'IN', 'Cooking',
+				135, 'Nadaraajan Perumal', '$165,604.80', 'https://static.kasatria.com/pivot-img/photo/IND_008.jpg', 25, 'IN', 'Writing',
+				136, 'Shri Gobaradhan', '$218,740.80', 'https://static.kasatria.com/pivot-img/photo/IND_039.jpg', 39, 'IN', 'Writing',
+				137, 'Satees Muniady', '$191,673.60', 'https://static.kasatria.com/pivot-img/photo/IND_034.jpg', 44, 'IN', 'Gardening',
+				138, 'Nur Syazwani Nabilah Ibrahim', '$210,110.40', 'https://static.kasatria.com/pivot-img/photo/m_190.jpg', 33, 'MY', 'Painting',
+				139, 'Geetha Davethas', '$199,689.60', 'https://static.kasatria.com/pivot-img/photo/IND_042.jpg', 24, 'IN', 'Hiking',
+				140, 'Pricella Ance', '$141,801.60', 'https://static.kasatria.com/pivot-img/photo/G_027.jpg', 34, 'US', 'Cooking',
+				141, 'Kumarran Thanrayan', '$128,222.40', 'https://static.kasatria.com/pivot-img/photo/i_013.jpg', 28, 'IN', 'Cooking',
+				142, 'Tineswary Pannaparon', '$94,281.60', 'https://static.kasatria.com/pivot-img/photo/i_002.jpg', 21, 'IN', 'Painting',
+				143, 'Vinothyni Anannthi', '$357,902.40', 'https://static.kasatria.com/pivot-img/photo/IND_015.jpg', 22, 'IN', 'Painting',
+				144, 'Pilva Bhatia', '$213,988.80', 'https://static.kasatria.com/pivot-img/photo/IND_013.jpg', 29, 'IN', 'Painting',
+				145, 'Wan Nahijah Mohamad', '$183,710.40', 'https://static.kasatria.com/pivot-img/photo/m_027.jpg', 24, 'MY', 'Painting',
+				146, 'Rahimi Muhamad', '$191,452.80', 'https://static.kasatria.com/pivot-img/photo/m_066.jpg', 30, 'MY', 'Writing',
+				147, 'Shuhada Shahira', '$258,057.60', 'https://static.kasatria.com/pivot-img/photo/m_090.jpg', 19, 'MY', 'Traveling',
+				148, 'Yana Husin', '$129,523.20', 'https://static.kasatria.com/pivot-img/photo/mus_202.jpg', 49, 'MY', 'Gardening',
+				149, 'Yusri Shafie', '$166,843.20', 'https://static.kasatria.com/pivot-img/photo/mus_163.jpg', 28, 'MY', 'Hiking',
+				150, 'Nurul Shafiza Mat Isa', '$257,068.80', 'https://static.kasatria.com/pivot-img/photo/mus_166.jpg', 32, 'MY', 'Painting',
+				151, 'Aidan Ohara', '$260,635.20', 'https://static.kasatria.com/pivot-img/photo/mus_194.jpg', 27, 'MY', 'Hiking',
+				152, 'Ella Berry', '$131,736.00', 'https://static.kasatria.com/pivot-img/photo/CA0128.jpg', 35, 'US', 'Cooking',
+				153, 'Noor Atheerah Zulkipli', '$154,046.40', 'https://static.kasatria.com/pivot-img/photo/mus_178.jpg', 31, 'MY', 'Cooking',
+				154, 'Ikmal Zakaria', '$197,380.80', 'https://static.kasatria.com/pivot-img/photo/m_185.jpg', 32, 'MY', 'Painting',
+				155, 'Syed Azuwan Syed Helmi', '$163,905.60', 'https://static.kasatria.com/pivot-img/photo/p_047.jpg', 34, 'MY', 'Writing',
+				156, 'Haziq Zamri', '$99,048.00', 'https://static.kasatria.com/pivot-img/photo/m_187.jpg', 27, 'MY', 'Painting',
+				157, 'Nor Fazila', '$189,384.00', 'https://static.kasatria.com/pivot-img/photo/mus_056.jpg', 29, 'MY', 'Cooking',
+				158, 'Muhd Ruzhan', '$232,641.60', 'https://static.kasatria.com/pivot-img/photo/m_116.jpg', 28, 'MY', 'Traveling',
+				159, 'Azhar Masli', '$212,256.00', 'https://static.kasatria.com/pivot-img/photo/m_154.jpg', 29, 'MY', 'Writing',
+				160, 'Mohd Riduan Hamin', '$235,483.20', 'https://static.kasatria.com/pivot-img/photo/m_120.jpg', 40, 'MY', 'Gardening',
+				161, 'Freya Rogers', '$240,427.20', 'https://static.kasatria.com/pivot-img/photo/CA0274.jpg', 30, 'US', 'Painting',
+				162, 'Harris Azman', '$232,377.60', 'https://static.kasatria.com/pivot-img/photo/m_181.jpg', 38, 'MY', 'Writing',
+				163, 'Muhammad Adli Azri', '$280,248.00', 'https://static.kasatria.com/pivot-img/photo/th_337.jpg', 24, 'MY', 'Painting',
+				164, 'Jafri Mohd', '$314,107.20', 'https://static.kasatria.com/pivot-img/photo/m_177.jpg', 29, 'MY', 'Hiking',
+				165, 'Aten Zulkifly', '$237,307.20', 'https://static.kasatria.com/pivot-img/photo/mus_019.jpg', 30, 'MY', 'Writing',
+				166, 'Eyqa Hassan', '$112,651.20', 'https://static.kasatria.com/pivot-img/photo/mus_045.jpg', 25, 'MY', 'Painting',
+				167, 'Muhd Yazid', '$76,492.80', 'https://static.kasatria.com/pivot-img/photo/m_018.jpg', 30, 'MY', 'Hiking',
+				168, 'Muhammad Syafiq Suhaimi', '$341,563.20', 'https://static.kasatria.com/pivot-img/photo/p_027.jpg', 39, 'MY', 'Writing',
+				169, 'Nashrul Amin', '$154,632.00', 'https://static.kasatria.com/pivot-img/photo/p_014.jpg', 62, 'MY', 'Gardening',
+				170, 'Nur Syahirah', '$148,492.80', 'https://static.kasatria.com/pivot-img/photo/mus_064.jpg', 21, 'MY', 'Painting',
+				171, 'Syamimy Ghani', '$200,347.20', 'https://static.kasatria.com/pivot-img/photo/mus_114.jpg', 20, 'MY', 'Traveling',
+				172, 'Shahir Sukri', '$282,700.80', 'https://static.kasatria.com/pivot-img/photo/p_028.jpg', 34, 'MY', 'Painting',
+				173, 'Amierul Miyul', '$321,004.80', 'https://static.kasatria.com/pivot-img/photo/p_030.jpg', 48, 'MY', 'Gardening',
+				174, 'Nara Sharkirra', '$338,539.20', 'https://static.kasatria.com/pivot-img/photo/mus_090.jpg', 23, 'MY', 'Writing',
+				175, 'Muhamad Hafiz Bob', '$240,312.00', 'https://static.kasatria.com/pivot-img/photo/p_022.jpg', 59, 'MY', 'Gardening',
+				176, 'Mohd Shahril', '$252,984.00', 'https://static.kasatria.com/pivot-img/photo/p_023.jpg', 48, 'MY', 'Gardening',
+				177, 'Eyka Abdul Ghani', '$233,726.40', 'https://static.kasatria.com/pivot-img/photo/mus_091.jpg', 23, 'MY', 'Traveling',
+				178, 'Mohamad Khuzairy', '$118,766.40', 'https://static.kasatria.com/pivot-img/photo/m_167.jpg', 33, 'MY', 'Cooking',
+				179, 'Nana Hanna', '$226,276.80', 'https://static.kasatria.com/pivot-img/photo/m_179.jpg', 20, 'MY', 'Traveling',
+				180, 'Mohd Hanafi Azhar', '$332,568.00', 'https://static.kasatria.com/pivot-img/photo/p_034.jpg', 62, 'MY', 'Gardening',
+				181, 'Zenki Afra', '$168,600.00', 'https://static.kasatria.com/pivot-img/photo/p_045.jpg', 60, 'MY', 'Gardening',
+				182, 'Mohamad Hairie', '$300,566.40', 'https://static.kasatria.com/pivot-img/photo/p_050.jpg', 48, 'MY', 'Gardening',
+				183, 'Mohd Syafiq', '$215,164.80', 'https://static.kasatria.com/pivot-img/photo/m_168.jpg', 57, 'MY', 'Gardening',
+				184, 'Muhammad Ashri', '$206,568.00', 'https://static.kasatria.com/pivot-img/photo/m_165.jpg', 27, 'MY', 'Traveling',
+				185, 'Yusni Asnida', '$167,016.00', 'https://static.kasatria.com/pivot-img/photo/mus_024.jpg', 20, 'MY', 'Traveling',
+				186, 'Shaheera Mohd Aniq', '$248,865.60', 'https://static.kasatria.com/pivot-img/photo/m_049.jpg', 19, 'MY', 'Traveling',
+				187, 'Nursyamimi Atiqah', '$288,734.40', 'https://static.kasatria.com/pivot-img/photo/m_103.jpg', 27, 'MY', 'Cooking',
+				188, 'Catherine Wheeler', '$53,697.60', 'https://static.kasatria.com/pivot-img/photo/G_038.jpg', 23, 'US', 'Hiking',
+				189, 'Azizah Mahzan', '$210,508.80', 'https://static.kasatria.com/pivot-img/photo/m_110.jpg', 28, 'MY', 'Hiking',
+				190, 'Mohd Azmi', '$212,006.40', 'https://static.kasatria.com/pivot-img/photo/m_149.jpg', 30, 'MY', 'Traveling',
+				191, 'Anastasia Morrison', '$71,625.60', 'https://static.kasatria.com/pivot-img/photo/G_035.jpg', 33, 'US', 'Hiking',
+				192, 'Razak Muhaidin', '$259,934.40', 'https://static.kasatria.com/pivot-img/photo/ph_151.jpg', 40, 'MY', 'Gardening',
+				193, 'Helena Tillsley', '$192,369.60', 'https://static.kasatria.com/pivot-img/photo/o_014.jpg', 45, 'US', 'Gardening',
+				194, 'Ryder Fletcher', '$257,323.20', 'https://static.kasatria.com/pivot-img/photo/G_057.jpg', 50, 'US', 'Gardening',
+				195, 'Sara Fessenden', '$145,972.80', 'https://static.kasatria.com/pivot-img/photo/G_058.jpg', 38, 'US', 'Writing',
+				196, 'Jeffrey Ewing', '$254,068.80', 'https://static.kasatria.com/pivot-img/photo/J_011.jpg', 49, 'CN', 'Gardening',
+				197, 'Dawson Hoffman', '$181,804.80', 'https://static.kasatria.com/pivot-img/photo/CA0162.jpg', 38, 'US', 'Cooking',
+				198, 'Jonne Macdonald', '$212,760.00', 'https://static.kasatria.com/pivot-img/photo/G_052.jpg', 36, 'US', 'Hiking',
+				199, 'Pierre Henry', '$127,704.00', 'https://static.kasatria.com/pivot-img/photo/CA0267.jpg', 52, 'US', 'Gardening',
+				200, 'Collen McClintock', '$261,883.20', 'https://static.kasatria.com/pivot-img/photo/G_039.jpg', 51, 'US', 'Gardening'
+			];
+
+			// ============= GOOGLE API INITIALIZATION =============
+			window.gapiLoaded = function() {
+				gapi.load('client', initializeGapiClient);
+			};
+
+			async function initializeGapiClient() {
+				await gapi.client.init({
+					apiKey: API_KEY,
+					discoveryDocs: [DISCOVERY_DOC],
+				});
+				gapiInited = true;
+				maybeEnableButtons();
+			}
+
+			window.gisLoaded = function() {
+				tokenClient = google.accounts.oauth2.initTokenClient({
+					client_id: CLIENT_ID,
+					scope: SCOPES,
+					callback: '', // defined later
+				});
+				gisInited = true;
+				maybeEnableButtons();
+			};
+
+			function maybeEnableButtons() {
+				if (gapiInited && gisInited) {
+					document.getElementById('authorize_button').style.display = 'block';
+				}
+			}
+
+			function handleAuthClick() {
+				tokenClient.callback = async (resp) => {
+					if (resp.error !== undefined) {
+						throw (resp);
+					}
+					document.getElementById('signout_button').style.display = 'block';
+					document.getElementById('authorize_button').style.display = 'none';
+					document.getElementById('user-info').textContent = 'Loading data...';
+					await loadSheetData();
+				};
+
+				if (gapi.client.getToken() === null) {
+					tokenClient.requestAccessToken({prompt: 'consent'});
+				} else {
+					tokenClient.requestAccessToken({prompt: ''});
+				}
+			}
+
+			function handleSignoutClick() {
+				const token = gapi.client.getToken();
+				if (token !== null) {
+					google.accounts.oauth2.revoke(token.access_token);
+					gapi.client.setToken('');
+				}
+				document.getElementById('authorize_button').style.display = 'block';
+				document.getElementById('signout_button').style.display = 'none';
+				document.getElementById('user-info').textContent = '';
+			}
+
+			async function loadSheetData() {
+				try {
+					const response = await gapi.client.sheets.spreadsheets.values.get({
+						spreadsheetId: SPREADSHEET_ID,
+						range: RANGE,
+					});
+					const range = response.result;
+					if (!range || !range.values || range.values.length === 0) {
+						document.getElementById('user-info').textContent = 'No data found.';
+						return;
+					}
+
+					// Convert sheet data to flat array
+					// Expected columns: ID, Name, NetWorth, Photo, Age, Country, Interest
+					table = [];
+					range.values.forEach(row => {
+						if (row.length >= 7) {
+							table.push(
+								parseInt(row[0]) || 0,  // ID
+								row[1] || '',            // Name
+								row[2] || '$0',          // NetWorth
+								row[3] || '',            // Photo
+								parseInt(row[4]) || 0,   // Age
+								row[5] || '',            // Country
+								row[6] || ''             // Interest
+							);
+						}
+					});
+
+					document.getElementById('user-info').textContent = `Loaded ${range.values.length} records`;
+					
+					// Reinitialize the visualization with new data
+					reinitializeVisualization();
+
+				} catch (err) {
+					console.error('Error loading sheet data:', err);
+					document.getElementById('user-info').textContent = 'Error loading data';
+				}
+			}
+
+			function reinitializeVisualization() {
+				// Clear existing objects
+				objects.forEach(obj => scene.remove(obj));
+				objects.length = 0;
+				targets.table.length = 0;
+				targets.sphere.length = 0;
+				targets.helix.length = 0;
+				targets.grid.length = 0;
+
+				// Rebuild visualization
+				buildVisualization();
+				transform(targets.table, 2000);
+			}
+
+			// Initialize Google API on load
+			window.addEventListener('load', () => {
+				if (typeof gapi !== 'undefined') {
+					window.gapiLoaded();
+				}
+				if (typeof google !== 'undefined') {
+					window.gisLoaded();
+				}
+			});
+
+			let camera, scene, renderer;
+			let controls;
+
+			const objects = [];
+			const targets = { table: [], sphere: [], helix: [], grid: [] };
+
+			// Helper function to get color based on net worth
+			function getColorByNetWorth(netWorthStr) {
+				// Remove $ and commas, then parse to number
+				const netWorth = parseFloat(netWorthStr.replace(/[$,]/g, ''));
+				
+				if (netWorth < 100000) {
+					return 'rgba(220, 20, 20, 0.8)'; // Red
+				} else if (netWorth < 200000) {
+					return 'rgba(255, 140, 0, 0.8)'; // Orange
+				} else {
+					return 'rgba(34, 139, 34, 0.8)'; // Green
+				}
+			}
+
+			init();
+			animate();
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.z = 3000;
+
+				scene = new THREE.Scene();
+
+				// Build the visualization
+				buildVisualization();
+
+				//
+
+				renderer = new CSS3DRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.getElementById( 'container' ).appendChild( renderer.domElement );
+
+				//
+
+				controls = new TrackballControls( camera, renderer.domElement );
+				controls.minDistance = 500;
+				controls.maxDistance = 6000;
+				controls.addEventListener( 'change', render );
+
+				const buttonTable = document.getElementById( 'table' );
+				buttonTable.addEventListener( 'click', function () {
+
+					transform( targets.table, 2000 );
+
+				} );
+
+				const buttonSphere = document.getElementById( 'sphere' );
+				buttonSphere.addEventListener( 'click', function () {
+
+					transform( targets.sphere, 2000 );
+
+				} );
+
+				const buttonHelix = document.getElementById( 'helix' );
+				buttonHelix.addEventListener( 'click', function () {
+
+					transform( targets.helix, 2000 );
+
+				} );
+
+				const buttonGrid = document.getElementById( 'grid' );
+				buttonGrid.addEventListener( 'click', function () {
+
+					transform( targets.grid, 2000 );
+
+				} );
+
+				// Google Auth buttons
+				document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
+				document.getElementById('signout_button').addEventListener('click', handleSignoutClick);
+
+				transform( targets.table, 2000 );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize );
+
+			}
+
+			function buildVisualization() {
+				// table - Data structure: [ID, Name, NetWorth, Photo, Age, Country, Interest]
+
+				for ( let i = 0; i < table.length; i += 7 ) {
+
+					const element = document.createElement( 'div' );
+					element.className = 'element';
+					// Color based on Net Worth
+					element.style.backgroundColor = getColorByNetWorth( table[ i + 2 ] );
+
+					const number = document.createElement( 'div' );
+					number.className = 'number';
+					number.textContent = table[ i ]; // ID
+					element.appendChild( number );
+
+					const symbol = document.createElement( 'div' );
+					symbol.className = 'symbol';
+					// Show initials or first name
+					const nameParts = table[ i + 1 ].split(' ');
+					symbol.textContent = nameParts.length > 1 ? nameParts[0].substring(0,1) + nameParts[nameParts.length-1].substring(0,1) : nameParts[0].substring(0,2);
+					element.appendChild( symbol );
+
+					const details = document.createElement( 'div' );
+					details.className = 'details';
+					details.innerHTML = table[ i + 1 ] + '<br>' + table[ i + 2 ];
+					element.appendChild( details );
+
+					const objectCSS = new CSS3DObject( element );
+					objectCSS.position.x = Math.random() * 4000 - 2000;
+					objectCSS.position.y = Math.random() * 4000 - 2000;
+					objectCSS.position.z = Math.random() * 4000 - 2000;
+					scene.add( objectCSS );
+
+					objects.push( objectCSS );
+
+					//
+
+					const object = new THREE.Object3D();
+					// 20x10 grid layout (20 columns, 10 rows)
+					const idx = i / 7;
+					const col = idx % 20;
+					const row = Math.floor(idx / 20);
+					object.position.x = ( col * 140 ) - 1330;
+					object.position.y = - ( row * 180 ) + 810;
+
+					targets.table.push( object );
+
+				}
+
+				// sphere
+
+				const vector = new THREE.Vector3();
+
+				for ( let i = 0, l = objects.length; i < l; i ++ ) {
+
+					const phi = Math.acos( - 1 + ( 2 * i ) / l );
+					const theta = Math.sqrt( l * Math.PI ) * phi;
+
+					const object = new THREE.Object3D();
+
+					object.position.setFromSphericalCoords( 800, phi, theta );
+
+					vector.copy( object.position ).multiplyScalar( 2 );
+
+					object.lookAt( vector );
+
+					targets.sphere.push( object );
+
+				}
+
+				// double helix - two intertwined spirals
+
+				for ( let i = 0, l = objects.length; i < l; i ++ ) {
+
+					// Alternate between two helixes (offset by PI radians)
+					const helixOffset = (i % 2) * Math.PI;
+					const theta = (i * 0.175) + helixOffset;
+					const y = - ( i * 8 ) + 450;
+
+					const object = new THREE.Object3D();
+
+					object.position.setFromCylindricalCoords( 900, theta, y );
+
+					vector.x = object.position.x * 2;
+					vector.y = object.position.y;
+					vector.z = object.position.z * 2;
+
+					object.lookAt( vector );
+
+					targets.helix.push( object );
+
+				}
+
+				// grid - 5x4x10 (5 wide, 4 high, 10 deep)
+
+				for ( let i = 0; i < objects.length; i ++ ) {
+
+					const object = new THREE.Object3D();
+
+					// 5 columns wide, 4 rows high, 10 layers deep
+					object.position.x = ( ( i % 5 ) * 400 ) - 800;
+					object.position.y = ( - ( Math.floor( i / 5 ) % 4 ) * 400 ) + 600;
+					object.position.z = ( Math.floor( i / 20 ) ) * 1000 - 4500;
+
+					targets.grid.push( object );
+
+				}
+
+			}
+
+			function transform( targets, duration ) {
+
+				TWEEN.removeAll();
+
+				for ( let i = 0; i < objects.length; i ++ ) {
+
+					const object = objects[ i ];
+					const target = targets[ i ];
+
+					new TWEEN.Tween( object.position )
+						.to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+					new TWEEN.Tween( object.rotation )
+						.to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+				}
+
+				new TWEEN.Tween( this )
+					.to( {}, duration * 2 )
+					.onUpdate( render )
+					.start();
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				render();
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				TWEEN.update();
+
+				controls.update();
+
+			}
+
+			function render() {
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
+</html>
