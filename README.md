@@ -18,7 +18,7 @@ A 3D interactive visualization displaying data in multiple formats (Table, Spher
 
 ## Live Demo
 
-[View Live Demo](https://YOUR_USERNAME.github.io/rosemallow_intern/)
+[View Live Demo](https://wnrliza.github.io/rosemallow_intern/)
 
 ## Setup
 
