@@ -119,7 +119,7 @@
 			const CLIENT_ID = '163206440640-vtoijeatmk1n4l8ne8chhpf6dvi6f4ll.apps.googleusercontent.com';
 			const API_KEY = 'AIzaSyC5zj_uKItBYkCrS0sDyPFLyTm0_7nIwSY';
 			const SPREADSHEET_ID = '14eb576StZ3jW-owX7qOYO8MaiyXQJxI_ZqbJyXbz3ks'; // Just the ID, not the full URL
-			const RANGE = 'Sheet1!A2:G201';
+			const RANGE = 'Data Template!A2:G201'; // Changed to match your sheet name
 
 			const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
 			const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -403,29 +403,19 @@
 					}
 
 					// Convert sheet data to flat array
-					// Expected columns: ID, Name, NetWorth, Photo, Age, Country, Interest
-					table = [];
-					range.values.forEach(row => {
-						if (row.length >= 7) {
-							table.push(
-								parseInt(row[0]) || 0,  // ID
-								row[1] || '',            // Name
-								row[2] || '$0',          // NetWorth
-								row[3] || '',            // Photo
-								parseInt(row[4]) || 0,   // Age
-								row[5] || '',            // Country
-								row[6] || ''             // Interest
-							);
-						}
-					});
-
-					document.getElementById('user-info').textContent = `Loaded ${range.values.length} records`;
-					
-					// Reinitialize the visualization with new data
-					reinitializeVisualization();
-
-				} catch (err) {
-					console.error('Error loading sheet data:', err);
+				// Your sheet columns: Name, Photo, Age, Country, Interest, NetWorth
+				// Code needs: ID, Name, NetWorth, Photo, Age, Country, Interest
+				table = [];
+				range.values.forEach((row, index) => {
+					if (row.length >= 6) {
+						table.push(
+							index + 1,               // ID (auto-generated)
+							row[0] || '',            // Name (Column A)
+							row[5] || '$0',          // NetWorth (Column F)
+							row[1] || '',            // Photo (Column B)
+							parseInt(row[2]) || 0,   // Age (Column C)
+							row[3] || '',            // Country (Column D)
+							row[4] || ''             // Interest (Column E)
 					document.getElementById('user-info').textContent = 'Error loading data';
 				}
 			}
