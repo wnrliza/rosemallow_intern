@@ -182,14 +182,13 @@
 				if (resp.error !== undefined) {
 					throw (resp);
 				}
-				document.getElementById('welcome-container').style.display = 'none';
-				document.getElementById('buttons').style.display = 'block';
-				document.getElementById('container').style.display = 'block';
+				// Hide welcome screen and show app
+				document.getElementById('welcome-screen').style.display = 'none';
+				document.getElementById('app-container').style.display = 'block';
 				
-				await listPeople();
-				
-				if (window.initVisualization) {
-					window.initVisualization();
+				// Trigger the module's data loading and visualization
+				if (window.startApplication) {
+					window.startApplication();
 				}
 			};
 
@@ -552,12 +551,17 @@
 						}
 					});
 
+					if (table.length === 0) {
+						document.getElementById('user-info').textContent = 'No valid data found.';
+						return;
+					}
+
 					document.getElementById('user-info').textContent = `Loaded ${range.values.length} records`;
-					reinitializeVisualization();
 
 				} catch (err) {
 					console.error('Error loading sheet data:', err);
-					document.getElementById('user-info').textContent = 'Error loading data';
+					document.getElementById('user-info').textContent = 'Error loading data. Using sample data.';
+					// Fall back to sample data that's already in the table array
 				}
 			}
 
@@ -572,6 +576,29 @@
 				buildVisualization();
 				transform(targets.table, 2000);
 			}
+
+			window.startApplication = async function() {
+				document.getElementById('user-info').textContent = 'Loading data...';
+				document.getElementById('signout_button').style.display = 'block';
+				
+				// Try to load from Google Sheets, otherwise use sample data
+				try {
+					await loadSheetData();
+				} catch (err) {
+					console.error('Error loading from sheets:', err);
+					// Sample data is already in the table variable
+					document.getElementById('user-info').textContent = 'Using sample data';
+				}
+				
+				// Initialize visualization - will use table data (either from sheets or sample)
+				if (!scene) {
+					init();
+					animate();
+				} else {
+					// If scene already exists, rebuild with new data
+					reinitializeVisualization();
+				}
+			};
 
 			function getColorByNetWorth(netWorthStr) {
 				const netWorth = parseFloat(netWorthStr.replace(/[$,]/g, ''));
