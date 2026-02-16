@@ -123,15 +123,13 @@
 			}
 		</script>
 
-		<script src="https://apis.google.com/js/api.js"></script>
-		<script src="https://accounts.google.com/gsi/client" async defer></script>
+		<script src="https://apis.google.com/js/api.js" onload="if(window.gapiLoaded)window.gapiLoaded()"></script>
+		<script src="https://accounts.google.com/gsi/client" onload="if(window.gisLoaded)window.gisLoaded()" async defer></script>
 
 		<script type="module">
 
 			import * as THREE from 'three';
-
 			import TWEEN from 'three/addons/libs/tween.module.js';
-			import { TrackballControls } from 'three/addons/controls/TrackballCon			import TWEEN from 'three/addons/libs/tween.module.js';
 			import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 			import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 
@@ -651,4 +649,9 @@
 			}
 
 			function render() {
-				renderer.render( scene, camera );
+				renderer.render( scene, camera );			}
+
+		</script>
+
+	</body>
+</html>
