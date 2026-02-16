@@ -129,22 +129,25 @@
 		<script type="module">
 
 			import * as THREE from 'three';
-
 			import TWEEN from 'three/addons/libs/tween.module.js';
 			import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 			import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 
+			// Constants
 			const CLIENT_ID = '163206440640-vtoijeatmk1n4l8ne8chhpf6dvi6f4ll.apps.googleusercontent.com';
 			const API_KEY = 'AIzaSyC5zj_uKItBYkCrS0sDyPFLyTm0_7nIwSY';
-			const SPREADSHEET_ID = '14eb576StZ3jW-owX7qOYO8MaiyXQJxI_ZqbJyXbz3ks'; // Just the ID, not the full URL
-			const RANGE = 'Data Template!A2:G201'; // Changed to match your sheet name
-
+			const SPREADSHEET_ID = '14eb576StZ3jW-owX7qOYO8MaiyXQJxI_ZqbJyXbz3ks';
+			const RANGE = 'Data Template!A2:G201';
 			const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
 			const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 
+			// Global variables
 			let tokenClient;
 			let gapiInited = false;
 			let gisInited = false;
+			let camera, scene, renderer, controls;
+			const objects = [];
+			const targets = { table: [], sphere: [], helix: [], grid: [] };
 
 			let table = [
 				1, 'Lee Siew Suan', '$251,260.80', 'https://static.kasatria.com/pivot-img/photo/019.jpg', 25, 'CN', 'Writing',
@@ -375,106 +378,101 @@
 
 			function maybeEnableButtons() {
 				if (gapiInited && gisInited) {
-				document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
-			}
-		}
-
-		function handleAuthClick() {
-			tokenClient.callback = async (resp) => {
-				if (resp.error !== undefined) {
-					throw (resp);
+					document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
 				}
-				document.getElementById('signout_button').style.display = 'block';
-				document.getElementById('user-info').textContent = 'Loading data...';
-				await loadSheetData();
-				
-				// Hide welcome screen and show app
-				document.getElementById('welcome-screen').style.display = 'none';
-				document.getElementById('app-container').style.display = 'block';
-				
-				// Initialize visualization after showing the app
-				if (!scene) {
-					init();
-					animate();
-				}
-			};
-
-			if (gapi.client.getToken() === null) {
-				tokenClient.requestAccessToken({prompt: 'consent'});
-			} else {
-				tokenClient.requestAccessToken({prompt: ''});
 			}
-		}
-			const token = gapi.client.getToken();
-			if (token !== null) {
-				google.accounts.oauth2.revoke(token.access_token);
-				gapi.client.setToken('');
-			}
-			
-			// Hide app and show welcome screen
-			document.getElementById('app-container').style.display = 'none';
-			document.getElementById('welcome-screen').style.display = 'flex';
-			document.getElementById('authorize_button').style.display = 'block';
-			document.getElementById('signout_button').style.display = 'none';
-			document.getElementById('user-info').textContent = '';
-		}
-		async function loadSheetData() {
-			try {
-				const response = await gapi.client.sheets.spreadsheets.values.get({
-					spreadsheetId: SPREADSHEET_ID,
-					range: RANGE,
-				});
-				const range = response.result;
-				if (!range || !range.values || range.values.length === 0) {
-					document.getElementById('user-info').textContent = 'No data found.';
-					return;
-				}
 
-				// Convert sheet data to flat array
-				// Your sheet columns: Name, Photo, Age, Country, Interest, NetWorth
-				// Code needs: ID, Name, NetWorth, Photo, Age, Country, Interest
-				table = [];
-				range.values.forEach((row, index) => {
-					if (row.length >= 6) {
-						table.push(
-							index + 1,               // ID (auto-generated)
-							row[0] || '',            // Name (Column A)
-							row[5] || '$0',          // NetWorth (Column F)
-							row[1] || '',            // Photo (Column B)
-							parseInt(row[2]) || 0,   // Age (Column C)
-							row[3] || '',            // Country (Column D)
-							row[4] || ''             // Interest (Column E)
-						);
+			function handleAuthClick() {
+				tokenClient.callback = async (resp) => {
+					if (resp.error !== undefined) {
+						throw (resp);
 					}
-				});
+					document.getElementById('signout_button').style.display = 'block';
+					document.getElementById('user-info').textContent = 'Loading data...';
+					await loadSheetData();
+					
+					// Hide welcome screen and show app
+					document.getElementById('welcome-screen').style.display = 'none';
+					document.getElementById('app-container').style.display = 'block';
+					
+					// Initialize visualization after showing the app
+					if (!scene) {
+						init();
+						animate();
+					}
+				};
 
-				document.getElementById('user-info').textContent = `Loaded ${range.values.length} records`;
-				
-				// Reinitialize the visualization with new data
-				reinitializeVisualization();
-
-			} catch (err) {
-				console.error('Error loading sheet data:', err);
-				document.getElementById('user-info').textContent = 'Error loading data';
+				if (gapi.client.getToken() === null) {
+					tokenClient.requestAccessToken({prompt: 'consent'});
+				} else {
+					tokenClient.requestAccessToken({prompt: ''});
+				}
 			}
-		}
 
-	function reinitializeVisualization() {
-		// Clear existing objects
-		objects.forEach(obj => scene.remove(obj));
-		objects.length = 0;
-		targets.table.length = 0;
-		targets.sphere.length = 0;
-		targets.helix.length = 0;
-		targets.grid.length = 0;
+			function handleSignoutClick() {
+				const token = gapi.client.getToken();
+				if (token !== null) {
+					google.accounts.oauth2.revoke(token.access_token);
+					gapi.client.setToken('');
+				}
+				
+				// Hide app and show welcome screen
+				document.getElementById('app-container').style.display = 'none';
+				document.getElementById('welcome-screen').style.display = 'flex';
+				document.getElementById('authorize_button').style.display = 'block';
+				document.getElementById('signout_button').style.display = 'none';
+				document.getElementById('user-info').textContent = '';
+			}
 
-		// Rebuild visualization
-		buildVisualization();
-		transform(targets.table, 2000);
-	}
-			// Helper function to get color based on net worth
+			async function loadSheetData() {
+				try {
+					const response = await gapi.client.sheets.spreadsheets.values.get({
+						spreadsheetId: SPREADSHEET_ID,
+						range: RANGE,
+					});
+					const range = response.result;
+					if (!range || !range.values || range.values.length === 0) {
+						document.getElementById('user-info').textContent = 'No data found.';
+						return;
+					}
+
+					table = [];
+					range.values.forEach((row, index) => {
+						if (row.length >= 6) {
+							table.push(
+								index + 1,               // ID (auto-generated)
+								row[0] || '',            // Name (Column A)
+								row[5] || '$0',          // NetWorth (Column F)
+								row[1] || '',            // Photo (Column B)
+								parseInt(row[2]) || 0,   // Age (Column C)
+								row[3] || '',            // Country (Column D)
+								row[4] || ''             // Interest (Column E)
+							);
+						}
+					});
+
+					document.getElementById('user-info').textContent = `Loaded ${range.values.length} records`;
+					reinitializeVisualization();
+
+				} catch (err) {
+					console.error('Error loading sheet data:', err);
+					document.getElementById('user-info').textContent = 'Error loading data';
+				}
+			}
+
+			function reinitializeVisualization() {
+				objects.forEach(obj => scene.remove(obj));
+				objects.length = 0;
+				targets.table.length = 0;
+				targets.sphere.length = 0;
+				targets.helix.length = 0;
+				targets.grid.length = 0;
+
+				buildVisualization();
+				transform(targets.table, 2000);
+			}
+
 			function getColorByNetWorth(netWorthStr) {
-				// Remove $ and commas, then parse to number
 				const netWorth = parseFloat(netWorthStr.replace(/[$,]/g, ''));
 				
 				if (netWorth < 100000) {
@@ -486,78 +484,63 @@
 				}
 			}
 
-		// Three.js variables
-		let camera, scene, renderer;
-		let controls;
+			function init() {
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.z = 3000;
 
-		const objects = [];
-		const targets = { table: [], sphere: [], helix: [], grid: [] };
+				scene = new THREE.Scene();
+				
+				buildVisualization();
 
-		function init() {
-			camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-			camera.position.z = 3000;
+				renderer = new CSS3DRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.getElementById( 'container' ).appendChild( renderer.domElement );
 
-			scene = new THREE.Scene();
+				controls = new TrackballControls( camera, renderer.domElement );
+				controls.minDistance = 500;
+				controls.maxDistance = 6000;
+				controls.addEventListener( 'change', render );
 
-			// Build the visualization
-			buildVisualization();
+				const buttonTable = document.getElementById( 'table' );
+				buttonTable.addEventListener( 'click', function () {
+					transform( targets.table, 2000 );
+				} );
 
-			//
+				const buttonSphere = document.getElementById( 'sphere' );
+				buttonSphere.addEventListener( 'click', function () {
+					transform( targets.sphere, 2000 );
+				} );
 
-			renderer = new CSS3DRenderer();
-			renderer.setSize( window.innerWidth, window.innerHeight );
-			document.getElementById( 'container' ).appendChild( renderer.domElement );
+				const buttonHelix = document.getElementById( 'helix' );
+				buttonHelix.addEventListener( 'click', function () {
+					transform( targets.helix, 2000 );
+				} );
 
-			//
+				const buttonGrid = document.getElementById( 'grid' );
+				buttonGrid.addEventListener( 'click', function () {
+					transform( targets.grid, 2000 );
+				} );
 
-			controls = new TrackballControls( camera, renderer.domElement );
-			controls.minDistance = 500;
-			controls.maxDistance = 6000;
-			controls.addEventListener( 'change', render );
-
-			const buttonTable = document.getElementById( 'table' );
-			buttonTable.addEventListener( 'click', function () {
-
+				document.getElementById('signout_button').addEventListener('click', handleSignoutClick);
 				transform( targets.table, 2000 );
 
-			} );
+				window.addEventListener( 'resize', onWindowResize );
+			}
 
-			const buttonSphere = document.getElementById( 'sphere' );
-			buttonSphere.addEventListener( 'click', function () {
+			function buildVisualization() {
+				for ( let i = 0; i < table.length; i += 7 ) {
 
-				transform( targets.sphere, 2000 );
-
-			} );
-
-			const buttonHelix = document.getElementById( 'helix' );
-			buttonHelix.addEventListener( 'click', function () {
-
-				transform( targets.helix, 2000 );
-
-			} );
-
-			const buttonGrid = document.getElementById( 'grid' );
-			buttonGrid.addEventListener( 'click', function () {
-
-				transform( targets.grid, 2000 );
-
-			} );
-
-			// Google Auth buttons
-			document.getElementById('signout_button').addEventListener('click', handleSignoutClick);
-
-			transform( targets.table, 2000 );
-					// Color based on Net Worth
+					const element = document.createElement( 'div' );
+					element.className = 'element';
 					element.style.backgroundColor = getColorByNetWorth( table[ i + 2 ] );
 
 					const number = document.createElement( 'div' );
 					number.className = 'number';
-					number.textContent = table[ i ]; // ID
+					number.textContent = table[ i ];
 					element.appendChild( number );
 
 					const symbol = document.createElement( 'div' );
 					symbol.className = 'symbol';
-					// Show initials or first name
 					const nameParts = table[ i + 1 ].split(' ');
 					symbol.textContent = nameParts.length > 1 ? nameParts[0].substring(0,1) + nameParts[nameParts.length-1].substring(0,1) : nameParts[0].substring(0,2);
 					element.appendChild( symbol );
@@ -575,10 +558,7 @@
 
 					objects.push( objectCSS );
 
-					//
-
 					const object = new THREE.Object3D();
-					// 20x10 grid layout (20 columns, 10 rows)
 					const idx = i / 7;
 					const col = idx % 20;
 					const row = Math.floor(idx / 20);
@@ -586,41 +566,29 @@
 					object.position.y = - ( row * 180 ) + 810;
 
 					targets.table.push( object );
-
 				}
-
-				// sphere
 
 				const vector = new THREE.Vector3();
 
 				for ( let i = 0, l = objects.length; i < l; i ++ ) {
-
 					const phi = Math.acos( - 1 + ( 2 * i ) / l );
 					const theta = Math.sqrt( l * Math.PI ) * phi;
 
 					const object = new THREE.Object3D();
-
 					object.position.setFromSphericalCoords( 800, phi, theta );
 
 					vector.copy( object.position ).multiplyScalar( 2 );
-
 					object.lookAt( vector );
 
 					targets.sphere.push( object );
-
 				}
 
-				// double helix - two intertwined spirals
-
 				for ( let i = 0, l = objects.length; i < l; i ++ ) {
-
-					// Alternate between two helixes (offset by PI radians)
 					const helixOffset = (i % 2) * Math.PI;
 					const theta = (i * 0.175) + helixOffset;
 					const y = - ( i * 8 ) + 450;
 
 					const object = new THREE.Object3D();
-
 					object.position.setFromCylindricalCoords( 900, theta, y );
 
 					vector.x = object.position.x * 2;
@@ -628,34 +596,24 @@
 					vector.z = object.position.z * 2;
 
 					object.lookAt( vector );
-
 					targets.helix.push( object );
-
 				}
 
-				// grid - 5x4x10 (5 wide, 4 high, 10 deep)
-
 				for ( let i = 0; i < objects.length; i ++ ) {
-
 					const object = new THREE.Object3D();
 
-					// 5 columns wide, 4 rows high, 10 layers deep
 					object.position.x = ( ( i % 5 ) * 400 ) - 800;
 					object.position.y = ( - ( Math.floor( i / 5 ) % 4 ) * 400 ) + 600;
 					object.position.z = ( Math.floor( i / 20 ) ) * 1000 - 4500;
 
 					targets.grid.push( object );
-
 				}
-
 			}
 
 			function transform( targets, duration ) {
-
 				TWEEN.removeAll();
 
 				for ( let i = 0; i < objects.length; i ++ ) {
-
 					const object = objects[ i ];
 					const target = targets[ i ];
 
@@ -668,41 +626,30 @@
 						.to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
 						.easing( TWEEN.Easing.Exponential.InOut )
 						.start();
-
 				}
 
 				new TWEEN.Tween( this )
 					.to( {}, duration * 2 )
 					.onUpdate( render )
 					.start();
-
 			}
 
 			function onWindowResize() {
-
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
 
 				renderer.setSize( window.innerWidth, window.innerHeight );
-
 				render();
-
 			}
 
 			function animate() {
-
 				requestAnimationFrame( animate );
-
 				TWEEN.update();
-
 				controls.update();
-
 			}
 
 			function render() {
-
 				renderer.render( scene, camera );
-
 			}
 
 		</script>
