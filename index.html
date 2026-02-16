@@ -123,8 +123,22 @@
 			}
 		</script>
 
-		<script src="https://apis.google.com/js/api.js"></script>
-		<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" onerror="console.error('Failed to load gapi.js'); window.showApiErrorMessage && window.showApiErrorMessage();"></script>
+	<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" onerror="console.error('Failed to load GSI client'); window.showApiErrorMessage && window.showApiErrorMessage();" async defer></script>
+
+	<script>
+		// Global error handler for script loading failures
+		window.showApiErrorMessage = function() {
+			const button = document.getElementById('authorize_button');
+			if (button) {
+				button.style.background = '#dc3545';
+				button.innerHTML = 'APIs Blocked - Click for Help';
+				button.onclick = function() {
+					alert('Google APIs are being blocked by your browser\'s tracking prevention.\n\nTo fix this:\n\n1. Click the shield icon (🛡️) in your address bar\n2. Choose "Turn off Tracking Prevention for this site"\n3. Refresh the page\n\nAlternatively:\n- Try using incognito/private mode\n- Try a different browser\n- Disable ad blockers temporarily');
+				};
+			}
+		};
+	</script>
 
 		<script type="module">
 
@@ -353,20 +367,41 @@
 			];
 
 			// ============= GOOGLE API INITIALIZATION =============
-			window.gapiLoaded = function() {
-				gapi.load('client', initializeGapiClient);
-			};
+		let loadingTimeout;
+		
+		// Timeout to detect if Google APIs fail to load (e.g., blocked by tracking prevention)
+		setTimeout(() => {
+			if (!gapiInited || !gisInited) {
+				console.error('Google APIs failed to load - likely blocked by tracking prevention');
+				showApiErrorMessage();
+			}
+		}, 5000); // 5 second timeout
 
-			async function initializeGapiClient() {
+		window.gapiLoaded = function() {
+			try {
+				gapi.load('client', initializeGapiClient);
+			} catch (error) {
+				console.error('gapiLoaded error:', error);
+				showApiErrorMessage();
+			}
+		};
+
+		async function initializeGapiClient() {
+			try {
 				await gapi.client.init({
 					apiKey: API_KEY,
 					discoveryDocs: [DISCOVERY_DOC],
 				});
 				gapiInited = true;
 				maybeEnableButtons();
+			} catch (error) {
+				console.error('initializeGapiClient error:', error);
+				showApiErrorMessage();
 			}
+		}
 
-			window.gisLoaded = function() {
+		window.gisLoaded = function() {
+			try {
 				tokenClient = google.accounts.oauth2.initTokenClient({
 					client_id: CLIENT_ID,
 					scope: SCOPES,
@@ -374,11 +409,26 @@
 				});
 				gisInited = true;
 				maybeEnableButtons();
-			};
+			} catch (error) {
+				console.error('gisLoaded error:', error);
+				showApiErrorMessage();
+			}
+		};
 
-			function maybeEnableButtons() {
-				if (gapiInited && gisInited) {
-					document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
+		function showApiErrorMessage() {
+			if (window.showApiErrorMessage) {
+				window.showApiErrorMessage();
+			}
+		}
+
+		function maybeEnableButtons() {
+			if (gapiInited && gisInited) {
+				console.log('Google APIs loaded successfully');
+				const button = document.getElementById('authorize_button');
+				if (button) {
+					button.style.background = '#4285f4'; // Restore original color
+					button.innerHTML = 'Sign in with Google'; // Restore original text
+					button.addEventListener('click', handleAuthClick);
 				}
 			}
 
