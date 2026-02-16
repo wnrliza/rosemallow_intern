@@ -93,7 +93,7 @@
 					to view and interact with your data
 				</p>
 				<button id="authorize_button" style="padding: 15px 40px; font-size: 18px; cursor: pointer; background: #4285f4; color: white; border: none; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.25); transition: all 0.3s;">
-					<span style="margin-right: 10px;">🔐</span> Sign in with Google
+					Sign in with Google
 				</button>
 			</div>
 		</div>
@@ -375,16 +375,16 @@
 
 			function maybeEnableButtons() {
 				if (gapiInited && gisInited) {
-					document.getElementById('authorize_button').style.display = 'block';
-				}
+				document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
 			}
+		}
 
-			function handleAuthClick() {
-				tokenClient.callback = async (resp) => {
-					if (resp.error !== undefined) {
-						throw (resp);
-					}
-					document.getElementById('signout_button').style.display = 'block';
+		function handleAuthClick() {
+			tokenClient.callback = async (resp) => {
+				if (resp.error !== undefined) {
+					throw (resp);
+				}
+				document.getElementById('signout_button').style.display = 'block';
 				document.getElementById('user-info').textContent = 'Loading data...';
 				await loadSheetData();
 				
@@ -405,8 +405,6 @@
 				tokenClient.requestAccessToken({prompt: ''});
 			}
 		}
-
-		function handleSignoutClick() {
 			const token = gapi.client.getToken();
 			if (token !== null) {
 				google.accounts.oauth2.revoke(token.access_token);
@@ -419,48 +417,48 @@
 			document.getElementById('authorize_button').style.display = 'block';
 			document.getElementById('signout_button').style.display = 'none';
 			document.getElementById('user-info').textContent = '';
-	}
-
-	async function loadSheetData() {
-		try {
-			const response = await gapi.client.sheets.spreadsheets.values.get({
-				spreadsheetId: SPREADSHEET_ID,
-				range: RANGE,
-			});
-			const range = response.result;
-			if (!range || !range.values || range.values.length === 0) {
-				document.getElementById('user-info').textContent = 'No data found.';
-				return;
-			}
-
-			// Convert sheet data to flat array
-			// Your sheet columns: Name, Photo, Age, Country, Interest, NetWorth
-			// Code needs: ID, Name, NetWorth, Photo, Age, Country, Interest
-			table = [];
-			range.values.forEach((row, index) => {
-				if (row.length >= 6) {
-					table.push(
-						index + 1,               // ID (auto-generated)
-						row[0] || '',            // Name (Column A)
-						row[5] || '$0',          // NetWorth (Column F)
-						row[1] || '',            // Photo (Column B)
-						parseInt(row[2]) || 0,   // Age (Column C)
-						row[3] || '',            // Country (Column D)
-						row[4] || ''             // Interest (Column E)
-					);
-				}
-			});
-
-			document.getElementById('user-info').textContent = `Loaded ${range.values.length} records`;
-			
-			// Reinitialize the visualization with new data
-			reinitializeVisualization();
-
-		} catch (err) {
-			console.error('Error loading sheet data:', err);
-			document.getElementById('user-info').textContent = 'Error loading data';
 		}
-	}
+
+		async function loadSheetData() {
+			try {
+				const response = await gapi.client.sheets.spreadsheets.values.get({
+					spreadsheetId: SPREADSHEET_ID,
+					range: RANGE,
+				});
+				const range = response.result;
+				if (!range || !range.values || range.values.length === 0) {
+					document.getElementById('user-info').textContent = 'No data found.';
+					return;
+				}
+
+				// Convert sheet data to flat array
+				// Your sheet columns: Name, Photo, Age, Country, Interest, NetWorth
+				// Code needs: ID, Name, NetWorth, Photo, Age, Country, Interest
+				table = [];
+				range.values.forEach((row, index) => {
+					if (row.length >= 6) {
+						table.push(
+							index + 1,               // ID (auto-generated)
+							row[0] || '',            // Name (Column A)
+							row[5] || '$0',          // NetWorth (Column F)
+							row[1] || '',            // Photo (Column B)
+							parseInt(row[2]) || 0,   // Age (Column C)
+							row[3] || '',            // Country (Column D)
+							row[4] || ''             // Interest (Column E)
+						);
+					}
+				});
+
+				document.getElementById('user-info').textContent = `Loaded ${range.values.length} records`;
+				
+				// Reinitialize the visualization with new data
+				reinitializeVisualization();
+
+			} catch (err) {
+				console.error('Error loading sheet data:', err);
+				document.getElementById('user-info').textContent = 'Error loading data';
+			}
+		}
 
 	function reinitializeVisualization() {
 		// Clear existing objects
@@ -489,72 +487,67 @@
 				}
 			}
 
-		// Don't initialize automatically - wait for login
-		// init() and animate() will be called after successful authentication
+		// Three.js variables
+		let camera, scene, renderer;
+		let controls;
 
-				// Build the visualization
-				buildVisualization();
+		const objects = [];
+		const targets = { table: [], sphere: [], helix: [], grid: [] };
 
-				//
+		function init() {
+			camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+			camera.position.z = 3000;
 
-				renderer = new CSS3DRenderer();
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				document.getElementById( 'container' ).appendChild( renderer.domElement );
+			scene = new THREE.Scene();
 
-				//
+			// Build the visualization
+			buildVisualization();
 
-				controls = new TrackballControls( camera, renderer.domElement );
-				controls.minDistance = 500;
-				controls.maxDistance = 6000;
-				controls.addEventListener( 'change', render );
+			//
 
-				const buttonTable = document.getElementById( 'table' );
-				buttonTable.addEventListener( 'click', function () {
+			renderer = new CSS3DRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.getElementById( 'container' ).appendChild( renderer.domElement );
 
-					transform( targets.table, 2000 );
+			//
 
-				} );
+			controls = new TrackballControls( camera, renderer.domElement );
+			controls.minDistance = 500;
+			controls.maxDistance = 6000;
+			controls.addEventListener( 'change', render );
 
-				const buttonSphere = document.getElementById( 'sphere' );
-				buttonSphere.addEventListener( 'click', function () {
-
-					transform( targets.sphere, 2000 );
-
-				} );
-
-				const buttonHelix = document.getElementById( 'helix' );
-				buttonHelix.addEventListener( 'click', function () {
-
-					transform( targets.helix, 2000 );
-
-				} );
-
-				const buttonGrid = document.getElementById( 'grid' );
-				buttonGrid.addEventListener( 'click', function () {
-
-					transform( targets.grid, 2000 );
-
-				} );
-
-				// Google Auth buttons
-				document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
-				document.getElementById('signout_button').addEventListener('click', handleSignoutClick);
+			const buttonTable = document.getElementById( 'table' );
+			buttonTable.addEventListener( 'click', function () {
 
 				transform( targets.table, 2000 );
 
-				//
+			} );
 
-				window.addEventListener( 'resize', onWindowResize );
+			const buttonSphere = document.getElementById( 'sphere' );
+			buttonSphere.addEventListener( 'click', function () {
 
-			}
+				transform( targets.sphere, 2000 );
 
-			function buildVisualization() {
-				// table - Data structure: [ID, Name, NetWorth, Photo, Age, Country, Interest]
+			} );
 
-				for ( let i = 0; i < table.length; i += 7 ) {
+			const buttonHelix = document.getElementById( 'helix' );
+			buttonHelix.addEventListener( 'click', function () {
 
-					const element = document.createElement( 'div' );
-					element.className = 'element';
+				transform( targets.helix, 2000 );
+
+			} );
+
+			const buttonGrid = document.getElementById( 'grid' );
+			buttonGrid.addEventListener( 'click', function () {
+
+				transform( targets.grid, 2000 );
+
+			} );
+
+			// Google Auth buttons
+			document.getElementById('signout_button').addEventListener('click', handleSignoutClick);
+
+			transform( targets.table, 2000 );
 					// Color based on Net Worth
 					element.style.backgroundColor = getColorByNetWorth( table[ i + 2 ] );
 
