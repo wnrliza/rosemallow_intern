@@ -378,6 +378,8 @@
 				document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
 			}
 		}
+
+		function handleAuthClick() {
 			tokenClient.callback = async (resp) => {
 				if (resp.error !== undefined) {
 					throw (resp);
@@ -403,8 +405,6 @@
 				tokenClient.requestAccessToken({prompt: ''});
 			}
 		}
-
-		function handleSignoutClick() {
 			const token = gapi.client.getToken();
 			if (token !== null) {
 				google.accounts.oauth2.revoke(token.access_token);
